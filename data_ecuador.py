@@ -3,6 +3,7 @@ from flask import Flask, jsonify, make_response, render_template, request, send_
 import requests
 from bs4 import BeautifulSoup
 import json
+import pandas as pd
 import io
 import csv
 import pyautogui
@@ -107,6 +108,33 @@ def download_data_from_endpoint(endpoint_url, filename):
     else:
         return 'No se pudieron obtener los datos del endpoint', 404
 
+@app.route('/downloadexcel/<path:endpoint_url>/<filename>')
+def download_data_from_endpoint_excel(endpoint_url, filename):
+    response = requests.get(endpoint_url, headers=headers)
+    data = response.json()
+    if response.status_code == 200:
+        # Verificar que las llaves son columnas
+        columns = ['institucion_id', 'institucion', 'siglas', 'logo', 'url', 'website', 'tipo', 'descripcion', 'sector', 'modificado', 'publicado']
+        for obj in data:
+            # Verificar que todas las llaves son columnas
+            if not all(key in columns for key in obj.keys()):
+                return 'Las llaves del objeto no son válidas'
+        # Crear un dataframe de pandas con los datos
+        df = pd.DataFrame(data, columns=columns)
+        # Eliminar los caracteres especiales \n y \t
+        df = df.replace({'\n': '', '\t': ''}, regex=True)
+        # Crear una respuesta HTTP con los datos en formato Excel
+        response = make_response()
+        writer = pd.ExcelWriter(filename, engine='xlsxwriter')
+        df.to_excel(writer, sheet_name='Sheet1', index=False)
+        writer.save()
+        response.headers['Content-Type'] = 'application/vnd.ms-excel'
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        with open(filename, 'rb') as file:
+            response.data = file.read()
+        return response
+    else:
+        return 'No se pudieron obtener los datos del endpoint', 404
 
 if __name__ == '__main__':
     app.run(debug=True)
