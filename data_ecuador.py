@@ -1,5 +1,5 @@
 import io
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, jsonify, make_response, render_template, request, send_file
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -64,29 +64,36 @@ def prueba():
     return "Hecho"
 
 def download_data_from_endpoint(endpoint_url, filename):
-
-
-    # Lee los datos utilizando UTF-8
-    
-
     response = requests.get(url, headers=headers)
-
     datos = response.json()
-    #datos = brotli.decompress(datos_comprimidos).decode('utf-8')
-
     print("Datos",datos)
-    # Verifica que la solicitud HTTP fue exitosa
+
     if response.status_code == 200:
-        # Detecta la codificación del archivo
-        #encoding = chardet.detect(datos.content)['encoding']
-        # Escribe los datos en el archivo especificado
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(str(datos))            
             print(datos)        
             print(f'Se descargaron los datos del endpoint en {filename}')
+            return send_file(filename, as_attachment=True)
     else:
         print('No se pudo obtener los datos del endpoint')
 
+
+@app.route('/download/<path:endpoint_url>/<filename>')
+def download_data_from_endpoint(endpoint_url, filename):
+    headers = {'Content-Type': 'application/json'}
+    response = requests.get(endpoint_url, headers=headers)
+    datos = response.json()
+
+    if response.status_code == 200:
+        # Crear una respuesta HTTP con los datos
+        response = make_response(str(datos))
+        # Establecer el tipo de contenido de la respuesta
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        # Establecer el encabezado para descargar el archivo
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    else:
+        return 'No se pudieron obtener los datos del endpoint', 404
 
 
 if __name__ == '__main__':
