@@ -3,6 +3,7 @@ from flask import Flask, jsonify, make_response, render_template, request, send_
 import requests
 from bs4 import BeautifulSoup
 import json
+import io
 import csv
 import pyautogui
 import time
@@ -15,6 +16,7 @@ app = Flask(__name__)
 
 url = 'localhost:5000/data'
 headers = {
+    'Content-Type': 'application/csv',
     'authority': 'www.gob.ec',
     'method': 'GET',
     'path': '/api/v1/instituciones',
@@ -80,15 +82,25 @@ def download_data_from_endpoint(endpoint_url, filename):
 
 @app.route('/download/<path:endpoint_url>/<filename>')
 def download_data_from_endpoint(endpoint_url, filename):
-    headers = {'Content-Type': 'application/json'}
     response = requests.get(endpoint_url, headers=headers)
-    datos = response.json()
-
+    data = response.json()
     if response.status_code == 200:
+        # Verificar que las llaves son columnas
+        columns = ['institucion_id', 'institucion', 'siglas', 'logo', 'url', 'website', 'tipo', 'descripcion', 'sector', 'modificado', 'publicado']
+        for obj in data:
+            # Verificar que todas las llaves son columnas
+            if not all(key in columns for key in obj.keys()):
+                return 'Las llaves del objeto no son válidas'
+        # Generar la respuesta con los datos separados por comas
+        response_data = '|'.join([column.encode('utf-8').decode('latin-1') for column in columns]) + '\n'
+        for obj in data:
+            print(obj)
+            row = '|'.join([str(obj.get(column, '').replace('\n', ' ').replace('\t', ' ')) for column in columns])
+            response_data += f'{row}\n'
         # Crear una respuesta HTTP con los datos
-        response = make_response(str(datos))
+        response = make_response(response_data)
         # Establecer el tipo de contenido de la respuesta
-        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        response.headers['Content-Type'] = 'text/csv; charset=utf-8'
         # Establecer el encabezado para descargar el archivo
         response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
