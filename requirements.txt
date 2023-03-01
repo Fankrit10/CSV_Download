@@ -4,3 +4,6 @@ chardet
 brotli
 pandas
 xlsxwriter
+reportlab
+fpdf
+keyboard

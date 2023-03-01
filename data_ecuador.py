@@ -5,6 +5,14 @@ from bs4 import BeautifulSoup
 import json
 import pandas as pd
 import io
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import Table, TableStyle, SimpleDocTemplate
+from io import BytesIO
+from reportlab.lib import colors
+from fpdf import FPDF
 import csv
 import pyautogui
 import time
@@ -136,5 +144,59 @@ def download_data_from_endpoint_excel(endpoint_url, filename):
     else:
         return 'No se pudieron obtener los datos del endpoint', 404
 
+@app.route('/downloadpdf/<path:endpoint_url>/<filename>')
+def download_data_from_endpoint_pdf(endpoint_url, filename):
+    response = requests.get(endpoint_url,headers=headers)
+    data = response.json()
+    if response.status_code == 200:
+        # Verificar que las llaves son columnas
+        columns = ['institucion_id', 'institucion', 'siglas', 'logo', 'url', 'website', 'tipo', 'descripcion', 'sector', 'modificado', 'publicado']
+        for obj in data:
+            # Verificar que todas las llaves son columnas
+            if not all(key in columns for key in obj.keys()):
+                return 'Las llaves del objeto no son válidas'
+        # Crear un dataframe de pandas con los datos
+        df = pd.DataFrame(data, columns=columns)
+        # Eliminar los caracteres especiales \n y \t
+        df = df.replace({'\n': '', '\t': ''}, regex=True)
+        # Crear un buffer de memoria para el PDF
+        buffer = BytesIO()
+        # Crear un objeto PDF con reportlab
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+        # Establecer el estilo para la tabla
+        styles = getSampleStyleSheet()
+        style = TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0C4B33')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), styles['Title'].fontName),
+            ('FONTSIZE', (0,0), (-1,0), 14),
+            ('BOTTOMPADDING', (0,0), (-1,0), 12),
+            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#F0F0F0')),
+            ('FONTNAME', (0,1), (-1,-1), styles['Normal'].fontName),
+            ('FONTSIZE', (0,1), (-1,-1), 10),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+        ])
+        # Crear una lista con los datos
+        data_list = []
+        
+        for index, row in df.iterrows():
+            data_list.append([styles['Normal'](str(row[column])) for column in columns])
+        # Crear una tabla con los datos
+        table = Table(data_list)
+        table.setStyle(style)
+        # Agregar la tabla al objeto PDF
+        doc.build([table])
+        # Crear una respuesta HTTP con los datos
+        response = make_response(buffer.getvalue())
+        # Establecer el tipo de contenido de la respuesta
+        response.headers['Content-Type'] = 'application/pdf'
+        # Establecer el encabezado para descargar el archivo
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    else:
+        return 'No se pudieron obtener los datos del endpoint', 404
+    
 if __name__ == '__main__':
     app.run(debug=True)

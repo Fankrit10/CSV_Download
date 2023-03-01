@@ -6,6 +6,7 @@ import pyautogui
 import time
 import random
 
+
 pyautogui.FAILSAFE = False
 
 app = Flask(__name__)
@@ -23,15 +24,17 @@ def home():
     return response"""
     #return send_file('datos.csv', mimetype='text/csv', as_attachment=True, attachment_filename='instituciones.csv')
 
-if __name__ == '__main__':
+
+if __name__ == '__main__':  
     while True:
+        print("correr")
+        time.sleep(15)
+        pyautogui.hotkey('tab', 'alt')
         pyautogui.scroll(-1)
-        print("corriendo")
-        time.sleep(30)
+        time.sleep(15)
         for i in range (0,10):
-            pyautogui.moveTo(0,i*5)
+            pyautogui.moveTo(0,i*50)
             time.sleep(random.uniform(0.1, 0.5)) # agregar un pequeño retraso aleatorio
-        for i in range (0,3):
-            pyautogui.press('shift')
+            pyautogui.click(button='right')  
             time.sleep(random.uniform(0.1, 0.5)) # agregar un pequeño retraso aleatorio
     app.run(debug=True)
